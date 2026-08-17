@@ -1,27 +1,26 @@
 import os
+import glob
 import warnings
+import torch
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
-from langchain_community.chat_models import ChatOllama
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 
 warnings.filterwarnings("ignore")
 
+# 경로 설정 — 환경변수로 덮어쓸 수 있다 (기본값은 저장소 기준 상대경로)
+DATA_DIR = os.environ.get("SONY_DATA_DIR", "data")
+VECTORSTORE_DIR = os.environ.get("SONY_VECTORSTORE_DIR", os.path.join(DATA_DIR, "vectorstore"))
 
-# PDF 파일 경로 리스트
-pdf_files = [
-    "/home/work/DY/SONY/글래스 사운드 스피커 LSPX-S3.pdf",
-    "/home/work/DY/SONY/디지털 카메라 ZV-1M2.pdf",
-    "/home/work/DY/SONY/렌즈 교환 가능 디지털 카메라 ILCE-7CM2.pdf",
-    "/home/work/DY/SONY/무선 노이즈 제거 스테레오 헤드셋 WF-1000XM5.pdf",
-    "/home/work/DY/SONY/무선 노이즈 제거 스테레오 헤드셋 WH-1000XM5.pdf",
-    "/home/work/DY/SONY/무선 스테레오 헤드셋 Float Run.pdf",
-    "/home/work/DY/SONY/무선 스피커 SRS-XE300.pdf"    
-]
+# PDF 파일 목록 — DATA_DIR 안의 모든 PDF를 대상으로 한다.
+# 설명서 PDF는 저작권상 저장소에 포함하지 않으므로 소니 공식 지원 사이트에서 직접 내려받아 넣을 것.
+pdf_files = sorted(glob.glob(os.path.join(DATA_DIR, "*.pdf")))
+if not pdf_files:
+    raise SystemExit(
+        f"{DATA_DIR}/ 에 PDF가 없습니다. "
+        "소니 공식 지원 사이트에서 제품 설명서를 내려받아 이 폴더에 넣으세요."
+    )
 
 # 여러 PDF 파일을 로드하여 문서 리스트 생성
 docs = []
@@ -47,20 +46,19 @@ text_splitter = RecursiveCharacterTextSplitter(
 )
 split_docs = text_splitter.split_documents(docs)
 
-import tensorflow as tf
-print("Available GPUs:", tf.config.list_physical_devices('GPU'))
-
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
 
 # 문장을 임베딩으로 변환하고 벡터 저장소에 저장
 embeddings = HuggingFaceEmbeddings(
     model_name='BAAI/bge-m3',
-    model_kwargs={'device': 'cuda'},
+    model_kwargs={'device': device},
     encode_kwargs={'normalize_embeddings': True},
 )
 
 
 # 벡터 저장소 생성 및 저장
-vectorstore_path = '/home/work/DY/SONY/vectorstore'
+vectorstore_path = VECTORSTORE_DIR
 os.makedirs(vectorstore_path, exist_ok=True)
 vectorstore = Chroma.from_documents(split_docs, embeddings, persist_directory=vectorstore_path)
 vectorstore.persist()

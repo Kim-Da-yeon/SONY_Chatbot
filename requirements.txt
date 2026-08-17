@@ -1,0 +1,12 @@
+streamlit
+torch
+transformers
+sentence-transformers
+scikit-learn
+langchain
+langchain-community
+langchain-chroma
+langchain-huggingface
+chromadb
+pymupdf
+tavily-python

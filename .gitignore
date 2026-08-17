@@ -1,0 +1,20 @@
+# Product manuals and the index built from them are not redistributable.
+data/
+*.pdf
+*.zip
+vectorstore/
+offload/
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

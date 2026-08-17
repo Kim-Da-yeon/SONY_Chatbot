@@ -7,16 +7,25 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_community.tools.tavily_search import TavilySearchResults
 
+# 경로 설정 — 환경변수로 덮어쓸 수 있다 (기본값은 저장소 기준 상대경로)
+DATA_DIR = os.environ.get("SONY_DATA_DIR", "data")
+VECTORSTORE_DIR = os.environ.get("SONY_VECTORSTORE_DIR", os.path.join(DATA_DIR, "vectorstore"))
+MODEL_PATH = os.environ.get("SONY_MODEL_PATH", "beomi/KoAlpaca-llama-1-7b")
+
 # 장치 설정 (GPU 또는 CPU)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
-# 웹 검색 설정 (Tavily API)
-os.environ["TAVILY_API_KEY"] = "tvly-REDACTED"  # API 키 입력
+# 웹 검색 설정 (Tavily API) — 키는 환경변수에서 읽는다. 소스에 절대 적지 말 것.
+if not os.environ.get("TAVILY_API_KEY"):
+    raise SystemExit(
+        "TAVILY_API_KEY 환경변수가 설정되지 않았습니다. "
+        "https://tavily.com 에서 키를 발급받아 `export TAVILY_API_KEY=...` 후 다시 실행하세요."
+    )
 web_search_tool = TavilySearchResults(k=2)
 
 # 벡터 저장소 설정
-directory_path = '/home/work/DY/SONY/vectorstore'
+directory_path = VECTORSTORE_DIR
 embedding_model = HuggingFaceEmbeddings(model_name='BAAI/bge-m3', model_kwargs={'device': device})
 vectorstore = Chroma(persist_directory=directory_path, embedding_function=embedding_model)
 retriever = vectorstore.as_retriever(search_kwargs={'k': 5})
@@ -24,8 +33,8 @@ retriever = vectorstore.as_retriever(search_kwargs={'k': 5})
 # 유사도 모델 설정
 similarity_model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
 
-# KoAlpaca 모델 설정 (로컬 경로 사용)
-model_name = "/home/work/DY/KoAlpaca-llama-1-7b"  # 로컬 모델 경로
+# KoAlpaca 모델 설정 (로컬 경로 또는 Hugging Face 모델 ID)
+model_name = MODEL_PATH
 tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
 # Option 1: Use device_map="auto" (Recommended for large models)

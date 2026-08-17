@@ -9,9 +9,14 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_community.tools.tavily_search import TavilySearchResults
 
+# 경로 설정 — 환경변수로 덮어쓸 수 있다 (기본값은 저장소 기준 상대경로)
+DATA_DIR = os.environ.get("SONY_DATA_DIR", "data")
+VECTORSTORE_DIR = os.environ.get("SONY_VECTORSTORE_DIR", os.path.join(DATA_DIR, "vectorstore"))
+MODEL_PATH = os.environ.get("SONY_MODEL_PATH", "beomi/KoAlpaca-llama-1-7b")
+
 # 이미지 파일 경로
-loading_image_path = '/home/work/DY/SONY/001.jpg'
-input_image_path = '/home/work/DY/SONY/002.jpg'
+loading_image_path = os.path.join(DATA_DIR, "001.jpg")
+input_image_path = os.path.join(DATA_DIR, "002.jpg")
 
 # CSS 설정 함수
 def set_background(image_path):
@@ -34,8 +39,8 @@ def set_background(image_path):
 # 장치 설정
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# KoAlpaca 모델 설정 (로컬 경로 사용)
-model_name = "/home/work/DY/KoAlpaca-llama-1-7b"
+# KoAlpaca 모델 설정 (로컬 경로 또는 Hugging Face 모델 ID)
+model_name = MODEL_PATH
 
 # 모델 및 토크나이저 로드
 @st.cache_resource
@@ -51,12 +56,17 @@ def load_model_and_tokenizer():
 
 tokenizer, model = load_model_and_tokenizer()
 
-# 웹 검색 설정
-os.environ["TAVILY_API_KEY"] = "tvly-REDACTED"
+# 웹 검색 설정 — 키는 환경변수에서 읽는다. 소스에 절대 적지 말 것.
+if not os.environ.get("TAVILY_API_KEY"):
+    st.error(
+        "TAVILY_API_KEY 환경변수가 설정되지 않았습니다. "
+        "https://tavily.com 에서 키를 발급받아 `export TAVILY_API_KEY=...` 후 다시 실행하세요."
+    )
+    st.stop()
 web_search_tool = TavilySearchResults(k=2)
 
 # 벡터 저장소 설정
-directory_path = '/home/work/DY/SONY/vectorstore'
+directory_path = VECTORSTORE_DIR
 embedding_model = HuggingFaceEmbeddings(model_name='BAAI/bge-m3', model_kwargs={'device': device})
 vectorstore = Chroma(persist_directory=directory_path, embedding_function=embedding_model)
 retriever = vectorstore.as_retriever(search_kwargs={'k': 5})
@@ -117,7 +127,9 @@ else:
         st.title("소니 제품 문의 시스템")
         product_name = st.selectbox(
             "제품명을 선택하세요:",
-            ["글래스 사운드 스피커 LSPX-S3", "디지털 카메라 A7", "렌즈 교환 가능 디지털 카메라 ILCE-7CM2", "무선 노이즈 제거 스테레오 헤드셋 WF-1000XM5", "무선 노이즈 제거 스테레오 헤드셋 WH-1000XM5", "무선 스테레오 헤드셋 Float Run", "무선 스피커 SRS-XE300" ]
+            # build_vectorstore.py 가 색인한 설명서 파일명과 일치해야 한다.
+            # (기존 목록의 "디지털 카메라 A7"은 색인된 설명서가 없어 ZV-1M2로 정정)
+            ["글래스 사운드 스피커 LSPX-S3", "디지털 카메라 ZV-1M2", "렌즈 교환 가능 디지털 카메라 ILCE-7CM2", "무선 노이즈 제거 스테레오 헤드셋 WF-1000XM5", "무선 노이즈 제거 스테레오 헤드셋 WH-1000XM5", "무선 스테레오 헤드셋 Float Run", "무선 스피커 SRS-XE300"]
         )
         query = st.text_input("문의 사항을 입력하세요:")
         if st.button("질문하기"):
