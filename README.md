@@ -57,3 +57,4 @@ streamlit run app.py
 ## 참고
 
 bge-m3 (Chen et al. 2024) · [KoAlpaca](https://github.com/Beomi/KoAlpaca) · [Chroma](https://github.com/chroma-core/chroma) · [Tavily](https://tavily.com)
+
